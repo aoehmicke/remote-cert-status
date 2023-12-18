@@ -76,7 +76,7 @@ fn write_tmp_get_organisation(host: &String, pem_file: &Path) -> String {
 // get certificate from url
     let pem = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("openssl s_client -connect {host}:443 </dev/null | openssl x509 -outform PEM > {file}", host=host, file= pem_file.display()))
+        .arg(format!("openssl s_client -connect {host}:443 </dev/null | openssl x509 -outform PEM > {file}", host = host, file = pem_file.display()))
         .output()
         .expect("failed to execute process");
 
@@ -95,11 +95,20 @@ fn write_tmp_get_organisation(host: &String, pem_file: &Path) -> String {
 // i example: depth=1 C = US, O = Let's Encrypt, CN = R3
 // o example: Let's Encrypt
 fn get_organisation(i: &str) -> String {
-    let i = i.split("O = ").collect::<Vec<&str>>();
-    let i = i[1].split(" =").collect::<Vec<&str>>();
+    //get organisation
+    let mut o = i.split("O = ").collect::<Vec<&str>>();
+    let mut s = " ="; //splitter
+    let mut l = 4; //length after split
+
+    if o.len() == 1 {
+        o = i.split("O=").collect::<Vec<&str>>();
+        s = ",";
+        l = 0;
+    }
+    let o = o[1].split(s).collect::<Vec<&str>>();
     //remove last 4 chars
-    let i = &i[0][..i[0].len() - 4];
+    let o = &o[0][..o[0].len() - l];
     //remove \" from string
-    let i = i.replace("\"", "");
-    i.to_string()
+    let o = o.replace("\"", "");
+    o.to_string()
 }

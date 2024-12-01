@@ -3,31 +3,6 @@
 This script will check the remaining days of a certificate and prints them to the shell.
 The output will be ordered by remaining days & hostname.
 
-## Usage
-```bash
-# Using a piped input
-./remaining-cert-days.sh < <file of hostnames>
-# Using an argument
-./remaining-cert-days.sh <hostname>
-```
-
-```bash
-# Example
-./remaining-cert-days.sh < hosts.txt
-
-# Output
-HOST                 ORGANISATION                    DAYS 
-some.service.tld     "Let's Encrypt"                 73   
-another.service.tld  "Starfield Technologies, Inc."  359 
-
-# Example
-./remaining-cert-days.sh some.service.tld
-
-# Output
-HOST              ORGANISATION     DAYS
-some.service.tld  "Let's Encrypt"  73
-```
-
 ## Requirements
 ### For running the application
 - openssl
@@ -36,7 +11,50 @@ some.service.tld  "Let's Encrypt"  73
 - rustc
 - cargo
 
+## Usage
+```bash
+# Using a piped input
+./target/release/remaining-cert-days < <file of hostnames>
+# Using an argument
+./target/release/remaining-cert-days <hostname>
+```
+
+```bash
+# Example
+./target/release/remaining-cert-days < hosts.txt
+
+# Output
+HOST                 ORGANISATION                    DAYS 
+some.service.tld     "Let's Encrypt"                 73   
+another.service.tld  "Starfield Technologies, Inc."  359 
+
+# Example
+./target/release/remaining-cert-days some.service.tld
+
+# Output
+HOST              ORGANISATION     DAYS
+some.service.tld  "Let's Encrypt"  73
+```
+
 ## Building
+
+### Debug build
+
+```bash
+cargo build
+
+# The binary will be located at ./target/release/remaining-cert-days
+
+# Example
+echo "some.service.tld" | ./target/debug/remaining-cert-days
+
+# Output
+HOST                 ORGANISATION                    DAYS
+some.service.tld     "Let's Encrypt"                 73
+```
+
+### Release build
+
 ```bash
 cargo build --release
 
@@ -50,11 +68,17 @@ HOST                 ORGANISATION                    DAYS
 some.service.tld     "Let's Encrypt"                 73
 ```
 
+## Testing
+
+```shell
+cargo run --bin test
+```
+
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ## Author
-[André Oehmicke](https://ao.oe-so.de)
+[André Oehmicke](https://github.com/aoehmicke)
 
 ## Version
 1.0.0

@@ -1,6 +1,6 @@
 [package]
 name = "remaining-cert-days"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,3 +9,6 @@ edition = "2021"
 log = "0.4.22"
 chrono = "0.4.38"
 tempfile = "3.14.0"
+tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "macros"] }
+stderrlog = "0.6.0"
+structopt = "0.3.26"

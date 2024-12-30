@@ -1,82 +1,126 @@
 mod openssl;
 
-use std::io::BufRead;
+use crate::openssl::table::Table;
+use log::{error, info};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Error};
 use std::path::Path;
+use std::path::PathBuf;
+use structopt::StructOpt;
 use tempfile::NamedTempFile;
 
-fn main() {
-    if std::env::args().len() == 1 {
-        from_stdin();
-    } else {
-        from_pos_arg();
-    }
+#[derive(StructOpt, Debug)]
+#[structopt()]
+struct Opt {
+    /// Silence all output
+    #[structopt(short = "q", long = "quiet")]
+    quiet: bool,
+    /// Verbose mode (-v, -vv, -vvv, etc)
+    #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
+    verbose: usize,
+    /// Timestamp (sec, ms, ns, none)
+    #[structopt(short = "t", long = "timestamp")]
+    ts: Option<stderrlog::Timestamp>,
+
+    /// File (hosts.txt)
+    #[structopt(short = "f", long = "file", default_value = "", parse(from_os_str))]
+    file: PathBuf,
+    /// Domain (google.com)
+    domains: Vec<String>,
 }
 
-fn from_stdin() {
-    let stdin = std::io::stdin();
-    let mut lines = stdin.lock().lines();
+#[tokio::main]
+async fn main() {
+    let opt = Opt::from_args();
 
-    let mut table = openssl::table::Table::new();
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(opt.quiet)
+        .verbosity(opt.verbose)
+        .timestamp(opt.ts.unwrap_or(stderrlog::Timestamp::Off))
+        .init()
+        .unwrap();
+
+    if !opt.domains.is_empty() {
+        from_domains(opt.domains);
+        std::process::exit(0);
+    }
+
+    let path = opt.file.as_path();
+    if !path.exists() {
+        error!("file {:?} does not exist", path);
+        std::process::exit(1);
+    }
+
+    if path.is_dir() {
+        error!("path {:?} is a directory", path);
+        std::process::exit(1);
+    }
+
+    from_file(opt.file);
+}
+
+fn from_file(path: PathBuf) {
+    let file = File::open(path).unwrap();
+    let reader = BufReader::new(file);
+
+    let mut table = Table::new();
     table.add(openssl::table::TableRow::header());
 
-    while let Some(line) = lines.next() {
-        let url = line.expect("failed to read line");
-        let file = NamedTempFile::new().expect("failed to create tempfile");
-        let path = file.path();
-
-        let organisation = write_tmp_get_organisation(&url, path);
-        let remaining_days = openssl::remaining_days_cmd_output(path.display(), organisation.clone(), url.clone());
-
-        // handle stderr
-        if !remaining_days.stderr.is_empty() {
-            continue;
-        }
-
-        table.add(openssl::table::TableRow::new(remaining_days.host.clone(), remaining_days.organisation.clone(), remaining_days.parse()));
-
-        //remove file
-        file.close().unwrap();
+    for line in reader.lines() {
+        add_domain(&mut table, line);
     }
 
     //print table
-    table
-        .order_by_host()
-        .order_by_remaining_days()
-        .print();
+    table.order_by_host().order_by_remaining_days().print();
 }
 
-fn from_pos_arg() {
-    //url from args
-    let url = std::env::args().nth(1).expect("no url given");
-
-    let file = NamedTempFile::new().expect("failed to create tempfile");
+fn add_domain<Error: std::fmt::Debug>(table: &mut Table, line: Result<String, Error>) {
+    let url = line.expect("failed to read line");
+    let file = NamedTempFile::new().expect("failed to create temp file");
     let path = file.path();
 
+    info!("adding domain {:?} to {:?}", url, path);
     let organisation = write_tmp_get_organisation(&url, path);
-    let remaining_days = openssl::remaining_days_cmd_output(path.display(), organisation.clone(), url.clone());
+    let remaining_days =
+        openssl::remaining_days_cmd_output(path.display(), organisation.clone(), url.clone());
+
+    file.close().unwrap();
 
     // handle stderr
     if !remaining_days.stderr.is_empty() {
-        let stderr = remaining_days.stderr;
-        println!("stderr: {}", stderr);
+        error!("adding domain {:?} failed: {}", url, remaining_days.stderr);
         return;
     }
 
-    //print table
-    openssl::table::Table::new()
-        .add(openssl::table::TableRow::header())
-        .add(openssl::table::TableRow::new(remaining_days.host.clone(), remaining_days.organisation.clone(), remaining_days.parse()))
-        .print();
+    table.add(openssl::table::TableRow::new(
+        remaining_days.host.clone(),
+        remaining_days.organisation.clone(),
+        remaining_days.parse(),
+    ));
+}
 
-    //remove file
-    file.close().unwrap();
+fn from_domains(domains: Vec<String>) {
+    let mut table = Table::new();
+    table.add(openssl::table::TableRow::header());
+
+    for domain in domains {
+        let line: Result<String, Error> = Ok(domain);
+        add_domain(&mut table, line);
+    }
+
+    table.print();
 }
 
 fn write_tmp_get_organisation(host: &String, pem_file: &Path) -> String {
-// get certificate from url
+    // get certificate from url
     let pem = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("openssl s_client -connect {host}:443 </dev/null | openssl x509 -outform PEM > {file}", host = host, file = pem_file.display()))
+        .arg(format!(
+            "openssl s_client -connect {host}:443 </dev/null | openssl x509 -outform PEM > {file}",
+            host = host,
+            file = pem_file.display()
+        ))
         .output()
         .expect("failed to execute process");
 

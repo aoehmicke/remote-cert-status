@@ -13,15 +13,15 @@ The output will be ordered by remaining days & hostname.
 
 ## Usage
 ```bash
-# Using a piped input
-./target/release/remaining-cert-days < <file of hostnames>
-# Using an argument
-./target/release/remaining-cert-days <hostname>
+# Using option
+./target/release/remaining-cert-days --file <file of hostnames>
+# Using argument
+./target/release/remaining-cert-days <domain1> <domain2>
 ```
 
 ```bash
 # Example
-./target/release/remaining-cert-days < hosts.txt
+./target/release/remaining-cert-days --file hosts.txt
 
 # Output
 HOST                 ORGANISATION                    DAYS 
@@ -29,11 +29,12 @@ some.service.tld     "Let's Encrypt"                 73
 another.service.tld  "Starfield Technologies, Inc."  359 
 
 # Example
-./target/release/remaining-cert-days some.service.tld
+./target/release/remaining-cert-days some.service.tld another.service.tld
 
 # Output
 HOST              ORGANISATION     DAYS
-some.service.tld  "Let's Encrypt"  73
+some.service.tld     "Let's Encrypt"                 73   
+another.service.tld  "Starfield Technologies, Inc."  359 
 ```
 
 ## Building
@@ -46,7 +47,7 @@ cargo build
 # The binary will be located at ./target/release/remaining-cert-days
 
 # Example
-echo "some.service.tld" | ./target/debug/remaining-cert-days
+./target/debug/remaining-cert-days "some.service.tld"
 
 # Output
 HOST                 ORGANISATION                    DAYS
@@ -61,7 +62,7 @@ cargo build --release
 # The binary will be located at ./target/release/remaining-cert-days
 
 # Example
-echo "some.service.tld" | ./target/release/remaining-cert-days
+./target/release/remaining-cert-days "some.service.tld"
 
 # Output
 HOST                 ORGANISATION                    DAYS
@@ -88,9 +89,9 @@ cargo run --bin test
 - Initial release
 
 ## TODO
-- [ ] Add support for multiple hostnames as arguments
-- [ ] Add support for multiple hostnames as input
-- [x] Add support for a file with hostnames as input
+- [x] Add support for multiple hostnames as arguments
+- [x] Add support for a file with hostnames as an input option
 - [ ] Add option to sort by days
 - [ ] Add option to sort by hostname
 - [ ] Add option to sort by organisation
+- [ ] Don't parse duplicated domains

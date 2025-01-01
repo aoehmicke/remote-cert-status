@@ -1,6 +1,7 @@
 mod openssl;
 
 use crate::openssl::table::Table;
+use crate::openssl::remaining_days::cmd_output;
 use log::{error, info};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
@@ -83,7 +84,7 @@ fn add_domain<Error: std::fmt::Debug>(table: &mut Table, line: Result<String, Er
     info!("adding domain {:?} to {:?}", url, path);
     let organisation = write_tmp_get_organisation(&url, path);
     let remaining_days =
-        openssl::remaining_days_cmd_output(path.display(), organisation.clone(), url.clone());
+        cmd_output(path.display(), organisation.clone(), url.clone());
 
     file.close().unwrap();
 
@@ -94,7 +95,7 @@ fn add_domain<Error: std::fmt::Debug>(table: &mut Table, line: Result<String, Er
     }
 
     table.add(openssl::table::TableRow::new(
-        remaining_days.host.clone(),
+        remaining_days.domain.clone(),
         remaining_days.organisation.clone(),
         remaining_days.parse(),
     ));

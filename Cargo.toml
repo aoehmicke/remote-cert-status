@@ -12,6 +12,6 @@ maintenance = { status = "experimental" }
 log = { version = "0.4.22", features = ["max_level_debug", "release_max_level_warn"] }
 chrono = { version = "0.4.38", features = ["default"] }
 tempfile = { version = "3.14.0" }
-tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "macros", "time"] }
 stderrlog = { version = "0.6.0", features = ["chrono", "timestamps"] }
 structopt = { version = "0.3.26", features = ["doc"] }

@@ -1,7 +1,7 @@
 mod openssl;
 
 use crate::openssl::table::Table;
-use crate::openssl::remaining_days::cmd_output;
+use crate::openssl::remaining_days::{cmd_output, RemainingDays};
 use log::{error, info};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error};
@@ -9,6 +9,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tempfile::NamedTempFile;
+use tokio::{spawn};
+use crate::openssl::table;
 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -43,7 +45,7 @@ async fn main() {
         .unwrap();
 
     if !opt.domains.is_empty() {
-        from_domains(opt.domains);
+        from_domains(opt.domains).await;
         std::process::exit(0);
     }
 
@@ -58,25 +60,50 @@ async fn main() {
         std::process::exit(1);
     }
 
-    from_file(opt.file);
+    from_file(opt.file).await;
 }
 
-fn from_file(path: PathBuf) {
+async fn from_file(path: PathBuf) {
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
 
     let mut table = Table::new();
     table.add(openssl::table::TableRow::header());
 
+    let mut join_handles = Vec::new();
+
     for line in reader.lines() {
-        add_domain(&mut table, line);
+        let handle = spawn(process_domain_line(line));
+        join_handles.push(handle);
+    }
+
+    for handle in join_handles {
+        let result = handle.await;
+        let remaining_days = result.unwrap();
+
+        if add_successful_parsed_remaining_days(&mut table, remaining_days) { continue; }
     }
 
     //print table
     table.order_by_host().order_by_remaining_days().print();
 }
 
-fn add_domain<Error: std::fmt::Debug>(table: &mut Table, line: Result<String, Error>) {
+fn add_successful_parsed_remaining_days(table: &mut Table, remaining_days: RemainingDays) -> bool {
+    // handle stderr
+    if !remaining_days.stderr.is_empty() {
+        error!("adding domain {:?} failed: {}", remaining_days.domain, remaining_days.stderr);
+        return true;
+    }
+
+    table.add(table::TableRow::new(
+        remaining_days.domain.clone(),
+        remaining_days.organisation.clone(),
+        remaining_days.parse()
+    ));
+    false
+}
+
+async fn process_domain_line<Error: std::fmt::Debug>(line: Result<String, Error>) -> RemainingDays {
     let url = line.expect("failed to read line");
     let file = NamedTempFile::new().expect("failed to create temp file");
     let path = file.path();
@@ -88,26 +115,18 @@ fn add_domain<Error: std::fmt::Debug>(table: &mut Table, line: Result<String, Er
 
     file.close().unwrap();
 
-    // handle stderr
-    if !remaining_days.stderr.is_empty() {
-        error!("adding domain {:?} failed: {}", url, remaining_days.stderr);
-        return;
-    }
-
-    table.add(openssl::table::TableRow::new(
-        remaining_days.domain.clone(),
-        remaining_days.organisation.clone(),
-        remaining_days.parse(),
-    ));
+    remaining_days
 }
 
-fn from_domains(domains: Vec<String>) {
+async fn from_domains(domains: Vec<String>) {
     let mut table = Table::new();
     table.add(openssl::table::TableRow::header());
 
     for domain in domains {
         let line: Result<String, Error> = Ok(domain);
-        add_domain(&mut table, line);
+        let result = process_domain_line(line).await;
+
+        _ = add_successful_parsed_remaining_days(&mut table, result)
     }
 
     table.print();

@@ -52,7 +52,7 @@ pub fn cmd_output(p: path::Display, organisation: String, domain: String) -> Rem
         .expect("failed to execute process");
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
     RemainingDays::new(stdout, stderr, organisation, domain)
 }
